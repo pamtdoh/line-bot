@@ -1,29 +1,39 @@
 import os
 import pathlib
 import time
+from linebot.models import ImageSendMessage
 from google_images_download import google_images_download
 from PIL import Image
 
+
+keyword = 'heh'
+metadata = {}
+def get_response(arg):
+    return get_image_pairs_urls(get_paths(arg)) if arg else None
+
+
 file_root_path = pathlib.Path(os.getenv('FILE_ROOT_PATH', None))
 image_path = file_root_path / 'images'
+server_root = os.getenv('SERVER_ROOT', None)
 
-crawler = google_images_download.googleimagesdownload()
 original_size = 1024
 preview_size = 240
 
+crawler = google_images_download.googleimagesdownload()
 
-def get_paths(keyword):
-    keyword = keyword.replace(',', ' ')
+
+def get_paths(search_key):
+    search_key = search_key.replace(',', ' ')
 
     args = {
-        'keywords': keyword,
+        'keywords': search_key,
         'limit': 5,
         'no_numbering': True,
         # 'thumbnail_only': True
         # 'no_download': True
     }
 
-    return crawler.download(args)[0][keyword]
+    return crawler.download(args)[0][search_key]
 
 
 def generate_image_pair(path, dirname, filename):
@@ -52,12 +62,15 @@ def generate_image_pair(path, dirname, filename):
         return
 
 
+def file_path_to_url(path):
+    return server_root + '/' + '/'.join(path.relative_to(file_root_path).parts)
+
+
 def get_image_pairs_urls(paths):
-    def relative_to_root(path):
-        return '/'.join(path.relative_to(file_root_path).parts)
-
     dirname = str(int(time.time() * 1000))
-    return [map(relative_to_root, path_pair) for path_pair in
-            [generate_image_pair(path, dirname, str(index)) for index, path in enumerate(paths) if os.path.exists(path)]
-            if path_pair]
+    image_pairs_paths = [generate_image_pair(path, dirname, str(index))
+                         for index, path in enumerate(paths)
+                         if os.path.exists(path) and path]
 
+    return [ImageSendMessage(file_path_to_url(original_path), file_path_to_url(preview_path))
+            for original_path, preview_path in image_pairs_paths]
