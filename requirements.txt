@@ -1,0 +1,4 @@
+flask
+google_images_download
+line-bot-sdk
+Pillow
