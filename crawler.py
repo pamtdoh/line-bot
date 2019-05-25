@@ -41,7 +41,6 @@ def generate_image_pair(path, dirname, filename):
 
             os.makedirs(os.path.dirname(new_path), exist_ok=True)
             new_image.save(new_path, image.format)
-            print(new_image)
 
             return new_path
 
@@ -55,7 +54,7 @@ def generate_image_pair(path, dirname, filename):
 
 def get_image_pairs_urls(paths):
     def relative_to_root(path):
-        return str(path.relative_to(file_root_path))
+        return '/'.join(path.relative_to(file_root_path).parts)
 
     dirname = str(int(time.time() * 1000))
     return [map(relative_to_root, path_pair) for path_pair in
