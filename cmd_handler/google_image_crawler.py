@@ -70,7 +70,7 @@ def get_image_pairs_urls(paths):
     dirname = str(int(time.time() * 1000))
     image_pairs_paths = [generate_image_pair(path, dirname, str(index))
                          for index, path in enumerate(paths)
-                         if os.path.exists(path) and path]
+                         if os.path.exists(path)]
 
     return [ImageSendMessage(file_path_to_url(original_path), file_path_to_url(preview_path))
-            for original_path, preview_path in image_pairs_paths]
+            for original_path, preview_path in filter(None, image_pairs_paths)]
