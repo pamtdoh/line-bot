@@ -4,7 +4,7 @@ import os
 class Config:
     APPLICATION_ROOT = os.getenv('FILE_ROOT_DIR')
     SERVER_URL = os.getenv('SERVER_URL')
-    SQLALCHEMY_DATABASE_URI = 'sqlite:///' + os.path.join(APPLICATION_ROOT, 'app.db')
+    SQLALCHEMY_DATABASE_URI = 'sqlite:///' + os.path.join(os.getcwd(), 'app.db')
     SQLALCHEMY_TRACK_MODIFICATIONS = False
 
     CHANNEL_SECRET = os.getenv('LINE_CHANNEL_SECRET')

@@ -1,5 +1,3 @@
-import cmd_handler
-
 from config import Config
 from flask import Flask, request, abort
 from flask_sqlalchemy import SQLAlchemy
@@ -16,6 +14,7 @@ from linebot.models import (
 app = Flask(__name__, static_url_path='', static_folder='')
 app.config.from_object(Config)
 db = SQLAlchemy(app)
+import cmd_handler
 
 
 line_bot_api = LineBotApi(app.config['CHANNEL_ACCESS_TOKEN'])
