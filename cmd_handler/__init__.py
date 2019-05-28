@@ -1,12 +1,12 @@
-from . import google_image_crawler
+from .google_image_crawler import GoogleImageCrawler
+from .helpers import get_keyword
 
-modules = [google_image_crawler]
-handlers = [module for module in modules
-            if {'keyword', 'metadata', 'get_response'} <= set(dir(module))]
+handlers = [GoogleImageCrawler]
 
 
-def handle(keyword, arg):
+def handle(message_event):
+    keyword = get_keyword(message_event)
     for handler in handlers:
-        if keyword == handler.keyword:
-            return handler.get_response(arg)
+        if keyword in handler.match_keywords:
+            return handler.response(message_event)
     return None
