@@ -15,6 +15,7 @@ app = Flask(__name__, static_url_path='', static_folder='')
 app.config.from_object(Config)
 db = SQLAlchemy(app)
 import cmd_handler
+import models
 
 
 line_bot_api = LineBotApi(app.config['CHANNEL_ACCESS_TOKEN'])

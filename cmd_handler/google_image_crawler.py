@@ -2,20 +2,26 @@ import os
 from pathlib import Path
 from app import db
 from config import Config
-from .helpers import (
-    get_timestamp, get_source_type, get_user_id, get_group_id,
-    get_keyword, get_search_key,
-    md5
-)
+from helpers import get_keyword, md5
 from linebot.models import ImageSendMessage
 from google_images_download import google_images_download
-from .models import Search
+from models import Search
 from PIL import Image
+
+
+image_dir = os.path.join(Config.FILE_ROOT_DIR, 'images')
+original_size = 1536
+preview_size = 512
 
 
 class GoogleImageCrawler:
     metadata = {}
-    match_keywords = ['heh', 'hehh']
+
+    @staticmethod
+    def matcher(event):
+        keyword = get_keyword(event)
+        return keyword == 'heh' or keyword == 'hehh'
+
     @staticmethod
     def response(event):
         keyword = get_keyword(event)
@@ -23,6 +29,7 @@ class GoogleImageCrawler:
             return GoogleImageCrawler.new_search(event).get_response()
         else:
             return GoogleImageCrawler.latest_search(event).get_response()
+
 
     def __init__(self, event):
         self.crawler = google_images_download.googleimagesdownload()
@@ -33,13 +40,7 @@ class GoogleImageCrawler:
     @staticmethod
     def new_search(event):
         h = GoogleImageCrawler(event)
-        h.search = Search(
-            timestamp=get_timestamp(h.event),
-            type=get_source_type(h.event),
-            userId=get_user_id(h.event),
-            groupId=get_group_id(h.event),
-            searchKey=get_search_key(h.event)
-        )
+        h.search = Search(event)
         db.session.add(h.search)
         db.session.commit()
         return h
@@ -47,10 +48,7 @@ class GoogleImageCrawler:
     @staticmethod
     def latest_search(event):
         h = GoogleImageCrawler(event)
-        h.search = Search.query.filter(
-            Search.userId == get_user_id(event),
-            Search.groupId == get_group_id(event)
-        ).order_by(Search.timestamp.desc()).first()
+        h.search = Search.latest(event)
         return h
 
     def get_response(self):
@@ -85,7 +83,7 @@ class GoogleImageCrawler:
 
     def get_image_pairs_urls(self, n):
         def file_path_to_url(path):
-            return Config.SERVER_URL + '/' + '/'.join(path.relative_to(Config.APPLICATION_ROOT).parts)
+            return Config.SERVER_URL + '/' + '/'.join(path.relative_to(Config.FILE_ROOT_DIR).parts)
 
         return [ImageSendMessage(file_path_to_url(original_path), file_path_to_url(preview_path))
                 for original_path, preview_path
@@ -116,7 +114,7 @@ class GoogleImageCrawler:
 
             def save_image(filename, size):
                 ratio = get_image_ratio(size)
-                path = Path(Config.image_dir) / dirname / f'{filename}.{ext}'
+                path = Path(image_dir) / dirname / f'{filename}.{ext}'
                 new_image = image.resize((int(width * ratio), int(height * ratio)), Image.ANTIALIAS)
 
                 os.makedirs(os.path.dirname(path), exist_ok=True)
@@ -124,8 +122,8 @@ class GoogleImageCrawler:
 
                 return path
 
-            original_path = save_image(filename, Config.original_size)
-            preview_path = save_image(f'{filename}p', Config.preview_size)
+            original_path = save_image(filename, original_size)
+            preview_path = save_image(f'{filename}p', preview_size)
 
             return original_path, preview_path
         except OSError:

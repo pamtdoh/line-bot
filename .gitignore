@@ -1,6 +1,9 @@
 __pycache__/
 downloads/
 images/
+process_fifo/
+roms/
 venv/
 bot-app.ini
+run_list
 wsgi.py
