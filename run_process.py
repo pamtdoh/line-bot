@@ -2,12 +2,13 @@ import os
 import pickle
 import signal
 
+from config import Config
 from subprocess import Popen
 
 
-fifo_dir = os.path.join(os.getcwd(), 'process_fifo')
-run_list_path = os.path.join(os.getcwd(), 'run_list')
-adapter_exec = os.path.join(os.getcwd(), 'adapter.py')
+fifo_dir = os.path.join(Config.APP_ROOT, 'process_fifo')
+run_list_path = os.path.join(Config.APP_ROOT, 'run_list')
+adapter_exec = os.path.join(Config.APP_ROOT, 'adapter.py')
 os.makedirs(fifo_dir, exist_ok=True)
 
 
@@ -57,9 +58,9 @@ def get_fifo_paths(id):
     return os.path.join(fifo_dir, f'in_{id}'), os.path.join(fifo_dir, f'out_{id}')
 
 
-def new(args):
+def new(args, **kwargs):
     id = find_new_id()
-    pid = Popen((adapter_exec, str(id)) + tuple(args)).pid
+    pid = Popen((adapter_exec, str(id)) + tuple(args), **kwargs).pid
     add_run_list(id, pid)
     return id
 
