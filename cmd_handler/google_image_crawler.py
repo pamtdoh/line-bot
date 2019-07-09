@@ -2,7 +2,7 @@ import os
 from pathlib import Path
 from app import db
 from config import Config
-from helpers import get_keyword, md5
+from helpers import message_text, md5
 from linebot.models import ImageSendMessage
 from google_images_download import google_images_download
 from models import Search
@@ -14,117 +14,124 @@ original_size = 1536
 preview_size = 512
 
 
-class GoogleImageCrawler:
-    metadata = {}
-
-    @staticmethod
-    def matcher(event):
-        keyword = get_keyword(event)
-        return keyword == 'heh' or keyword == 'hehh'
-
-    @staticmethod
-    def response(event):
-        keyword = get_keyword(event)
-        if keyword == 'heh':
-            return GoogleImageCrawler.new_search(event).get_response()
-        else:
-            return GoogleImageCrawler.latest_search(event).get_response()
-
-
+class NewSearch:
     def __init__(self, event):
-        self.crawler = google_images_download.googleimagesdownload()
-
         self.event = event
-        self.search = None
 
-    @staticmethod
-    def new_search(event):
-        h = GoogleImageCrawler(event)
-        h.search = Search(event)
-        db.session.add(h.search)
+        text = message_text(event)
+        self.keyword = keyword(text)
+        self.search_key = rest(text)
+
+    def match(self):
+        return self.keyword == 'heh' and self.search_key
+
+    def response(self):
+        search = Search(self.event, self.search_key)
+        db.session.add(search)
         db.session.commit()
-        return h
 
-    @staticmethod
-    def latest_search(event):
-        h = GoogleImageCrawler(event)
-        h.search = Search.latest(event)
-        return h
+        response = get_response_and_update(search, 5)
+        return response
 
-    def get_response(self):
-        if self.search:
-            response = self.get_image_pairs_urls(5) if self.search.searchKey else None
-            db.session.commit()
-            return response
 
-    def get_image_pairs(self, n):
-        dirname = md5(self.search.searchKey)
+class NextSearch:
+    def __init__(self, event):
+        self.event = event
+        self.keyword = keyword(message_text(event))
+        self.last_search = Search.last(event)
 
-        limit = 5
-        download_paths = []
+    def match(self):
+        return self.keyword == 'hehh' and self.last_search
 
-        path_pairs = []
-        while len(path_pairs) < n:
-            if not download_paths:
-                # the list is reversed so the order is preserved when popped
-                download_paths = self.get_download_paths(limit)
-                download_paths.reverse()
-                self.search.start += limit
+    def response(self):
+        response = get_response_and_update(self.last_search, 5)
+        return response
 
-            download_path = download_paths.pop()
-            if os.path.exists(download_path):
-                pair = self.generate_image_pair(download_path, dirname, str(self.search.count))
-                if pair:
-                    path_pairs.append(pair)
-                    self.search.count += 1
-        self.search.start -= len(download_paths)
 
-        return path_pairs
+metadata = {}
 
-    def get_image_pairs_urls(self, n):
-        def file_path_to_url(path):
-            return Config.SERVER_URL + '/' + '/'.join(path.relative_to(Config.FILE_ROOT_DIR).parts)
+crawler = google_images_download.googleimagesdownload()
 
-        return [ImageSendMessage(file_path_to_url(original_path), file_path_to_url(preview_path))
-                for original_path, preview_path
-                in self.get_image_pairs(n)]
 
-    def get_download_paths(self, limit=5):
-        search_key = self.search.searchKey.replace(',', ' ')
+def get_response_and_update(search, n):
+    def file_path_to_url(path):
+        return Config.SERVER_URL + '/' + '/'.join(path.relative_to(Config.FILE_ROOT_DIR).parts)
 
-        args = {
-            'keywords': search_key,
-            'offset': self.search.start + 1,
-            'limit': self.search.start + limit,
-            'no_numbering': True,
-            'silent_mode': True
-        }
+    return [ImageSendMessage(file_path_to_url(original_path), file_path_to_url(preview_path))
+            for original_path, preview_path
+            in get_image_and_update(search, n)]
 
-        return self.crawler.download(args)[0][search_key]
 
-    @staticmethod
-    def generate_image_pair(download_path, dirname, filename):
-        try:
-            image = Image.open(download_path)
-            ext = 'jpg' if image.format == 'JPEG' else 'png'
-            width, height = image.size
+def get_image_and_update(search, n):
+    dirname = md5(search.searchKey)
 
-            def get_image_ratio(size):
-                return 1 if width < size and height < size else size / max(width, height)
+    limit = 5
+    download_paths = []
 
-            def save_image(filename, size):
-                ratio = get_image_ratio(size)
-                path = Path(image_dir) / dirname / f'{filename}.{ext}'
-                new_image = image.resize((int(width * ratio), int(height * ratio)), Image.ANTIALIAS)
+    path_pairs = []
+    while len(path_pairs) < n:
+        if not download_paths:
+            # the list is reversed so the order is preserved when popped
+            download_paths = fetch_download_paths(search.searchKey, search.start, limit)
+            download_paths.reverse()
+            search.start += limit
 
-                os.makedirs(os.path.dirname(path), exist_ok=True)
-                new_image.save(path)
+        download_path = download_paths.pop()
+        if os.path.exists(download_path):
+            pair = generate_image_pair(download_path, dirname, str(search.count))
+            if pair:
+                path_pairs.append(pair)
+                search.count += 1
+    search.start -= len(download_paths)
 
-                return path
+    db.session.commit()
+    return path_pairs
 
-            original_path = save_image(filename, original_size)
-            preview_path = save_image(f'{filename}p', preview_size)
 
-            return original_path, preview_path
-        except OSError:
-            return
+def fetch_download_paths(search_key, start, limit=5):
+    search_key = search_key.replace(',', ' ')
+
+    args = {
+        'keywords': search_key,
+        'offset': start + 1,
+        'limit': start + limit,
+        'no_numbering': True,
+        'silent_mode': True
+    }
+
+    return crawler.download(args)[0][search_key]
+
+
+def generate_image_pair(download_path, dirname, filename):
+    try:
+        image = Image.open(download_path)
+        ext = 'jpg' if image.format == 'JPEG' else 'png'
+        width, height = image.size
+
+        def get_image_ratio(size):
+            return 1 if width < size and height < size else size / max(width, height)
+
+        def save_image(filename, size):
+            ratio = get_image_ratio(size)
+            path = Path(image_dir) / dirname / f'{filename}.{ext}'
+            new_image = image.resize((int(width * ratio), int(height * ratio)), Image.ANTIALIAS)
+
+            os.makedirs(os.path.dirname(path), exist_ok=True)
+            new_image.save(path)
+
+            return path
+
+        original_path = save_image(filename, original_size)
+        preview_path = save_image(f'{filename}p', preview_size)
+
+        return original_path, preview_path
+    except OSError:
+        return
+
+
+def keyword(text):
+    return text.split()[0]
+
+
+def rest(text):
+    return text[len(keyword(text)):].lstrip()

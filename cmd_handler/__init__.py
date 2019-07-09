@@ -1,11 +1,12 @@
-from .dfrotz import Dfrotz
-from .google_image_crawler import GoogleImageCrawler
+# from .dfrotz import Dfrotz
+from .google_image_crawler import NewSearch, NextSearch
 
-handlers = [GoogleImageCrawler, Dfrotz]
+handlers = [NewSearch, NextSearch]
 
 
-def handle(message_event):
+def handle(event):
     for handler in handlers:
-        if handler.matcher(message_event):
-            return handler.response(message_event)
+        instance = handler(event)
+        if instance.match():
+            return instance.response()
     return None

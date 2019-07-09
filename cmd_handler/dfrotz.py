@@ -5,7 +5,7 @@ import run_process
 
 from app import db
 from config import Config
-from helpers import get_text, get_source_group_id
+from helpers import message_text, source_group_id
 from linebot.models import TextSendMessage
 from models import RunningProcess
 
@@ -27,7 +27,7 @@ class Dfrotz:
 
     @staticmethod
     def matcher(event):
-        text = get_text(event)
+        text = message_text(event)
         return re.match(r'new game \d+', text) or \
                re.match(r'list roms', text) or \
                re.match(r'\.', text) and RunningProcess.latest_in_group(event)
@@ -36,17 +36,16 @@ class Dfrotz:
     def response(event):
         return Dfrotz(event).get_response()
 
-
     def __init__(self, event):
         self.event = event
         self.cmd_type = None
 
-        text = get_text(self.event)
+        text = message_text(self.event)
         m = re.match(r'new game (\d+)', text)
         if m:
             self.rom_id = int(m.group(1))
             self.save_dir = make_save_dir(
-                get_source_group_id(self.event),
+                source_group_id(self.event),
                 rom_names[self.rom_id]
             )
             self.cmd_type = 'new'
@@ -89,7 +88,7 @@ class Dfrotz:
             ]
         elif self.cmd_type == 'input':
             run_id = self.running_process.runId
-            input = get_text(self.event)[1:] + '\n'
+            input = message_text(self.event)[1:] + '\n'
             return [
                 TextSendMessage(run_process.get_response(run_id, input))
             ]
