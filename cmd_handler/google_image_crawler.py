@@ -2,7 +2,7 @@ import os
 from pathlib import Path
 from app import db
 from config import Config
-from helpers import message_text, md5
+from helpers import message_text, md5, first_word, rest
 from linebot.models import ImageSendMessage
 from google_images_download import google_images_download
 from models import Search
@@ -17,13 +17,10 @@ preview_size = 512
 class NewSearch:
     def __init__(self, event):
         self.event = event
-
-        text = message_text(event)
-        self.keyword = keyword(text)
-        self.search_key = rest(text)
+        self.search_key = rest(message_text(event))
 
     def match(self):
-        return self.keyword == 'heh' and self.search_key
+        return first_word(message_text(self.event)) == 'heh' and self.search_key
 
     def response(self):
         search = Search(self.event, self.search_key)
@@ -37,11 +34,10 @@ class NewSearch:
 class NextSearch:
     def __init__(self, event):
         self.event = event
-        self.keyword = keyword(message_text(event))
         self.last_search = Search.last(event)
 
     def match(self):
-        return self.keyword == 'hehh' and self.last_search
+        return first_word(message_text(self.event)) == 'hehh' and self.last_search
 
     def response(self):
         response = get_response_and_update(self.last_search, 5)
@@ -127,11 +123,3 @@ def generate_image_pair(download_path, dirname, filename):
         return original_path, preview_path
     except OSError:
         return
-
-
-def keyword(text):
-    return text.split()[0]
-
-
-def rest(text):
-    return text[len(keyword(text)):].lstrip()
