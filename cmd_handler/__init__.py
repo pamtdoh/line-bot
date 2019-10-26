@@ -1,7 +1,8 @@
 # from .dfrotz import Dfrotz
 from .google_image_crawler import NewSearch, NextSearch
+from .dfrotz import ListRoms, DfrotzNew, DfrotzInput
 
-handlers = [NewSearch, NextSearch]
+handlers = [DfrotzInput, NewSearch, NextSearch, DfrotzNew, ListRoms]
 
 
 def handle(event):
